@@ -10,6 +10,10 @@ private const val Rounds = 10000
  * BigDecimals :) The trick in this one is to remember but delay the computation for as long as possible. As we're only really interested in whether
  * the result at the end of a long chain of operations is divisible by N, we can modulo N per every operation - but we must do that for each monkey
  * individually, which means we must remember the computation chain (Items.operations in this implementation)!
+ * 
+ * Note2: I'm an idiot, and one of my previous ideas of using the LCM of the divisors actually works (and obviously doesn't require one to store the
+ * history of the operations) - I just didn't realize it worked because my Items were storing the value as an Int... it's interesting to think about, 
+ * though - if the task were to be a bit differently parameterized (eg. with larger starting values), then Long wouldn't be enough either!
  */
 fun main() {
     val monkeys = File("src/main/resources/input11.txt").readText().split("\n\n")
@@ -17,9 +21,12 @@ fun main() {
         .map(::parseMonkey)
 
 
+    val lcm = monkeys.map(Monkey::divisor).reduce(::lcm)
+    println("LCM = $lcm")
+
     for (i in 1..Rounds) {
         for (monkey in monkeys) {
-            monkey.inspectAndThrowAll(monkeys)
+            monkey.inspectAndThrowAll(monkeys, lcm)
         }
     }
 
@@ -31,13 +38,26 @@ fun main() {
     println("Level of monkey business: $result")
 }
 
+fun lcm(a: Int, b: Int) = a * (b / gcd(a, b))
+
+fun gcd(a: Int, b: Int): Int {
+    var a0 = a
+    var b0 = b
+    while (b0 > 0) {
+        val temp = b0
+        b0 = a0 % b0
+        a0 = temp
+    }
+    return a0
+}
+
 private class Monkey(val name: Int, val items: Queue<Item>, val operation: Operation, val divisor: Int, val throwToTrue: Int, val throwToFalse: Int) {
     var inspections = 0L
 
-    fun inspectAndThrowAll(monkeys: List<Monkey>) {
+    fun inspectAndThrowAll(monkeys: List<Monkey>, lcm: Int) {
         while (true) {
             val item = items.poll() ?: return
-            item.operations.add(operation)
+            item.apply(operation, lcm)
             inspections++
             val throwTo = if (item.divisibleBy(divisor)) throwToTrue else throwToFalse
             monkeys[throwTo].catch(item)
@@ -49,18 +69,16 @@ private class Monkey(val name: Int, val items: Queue<Item>, val operation: Opera
     }
 }
 
-private data class Item(val value: Int, val operations: MutableList<Operation>) {
-    fun divisibleBy(divisor: Int): Boolean {
-        var current = value
-        for (operation in operations) {
-            current = when (operation) {
-                is Mul -> (current * operation.multiplier) % divisor
-                is Add -> (current + operation.add) % divisor
-                Square -> (current * current) % divisor
-            }
+private data class Item(var value: Long) {
+    fun apply(operation: Operation, lcm: Int) {
+        value = when (operation) {
+            is Mul -> (value * operation.multiplier) % lcm
+            is Add -> (value + operation.add) % lcm
+            Square -> (value * value) % lcm
         }
-        return current % divisor == 0
     }
+
+    fun divisibleBy(divisor: Int) = value % divisor == 0L
 }
 
 private sealed interface Operation
@@ -70,7 +88,7 @@ private object Square : Operation
 
 private fun parseMonkey(lines: List<String>): Monkey {
     val name = lines[0].replace(Regex("\\D+"), "").toInt()
-    val items = lines[1].substring("  Starting items: ".length).split(", ").map { Item(it.toInt(), mutableListOf()) }
+    val items = lines[1].substring("  Starting items: ".length).split(", ").map { Item(it.toLong()) }
     val operation = parseOperation(lines[2].substring("  Operation: new = ".length))
     val divisor = lines[3].substring("  Test: divisible by ".length).toInt()
     val throwToTrue = lines[4].substring("    If true: throw to monkey ".length).toInt()
