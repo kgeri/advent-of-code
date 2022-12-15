@@ -112,4 +112,4 @@ fun neighbors(width: Int, height: Int, c: Coordinate) = sequence {
     if (y > 0) yield(Coordinate(x, y - 1))
 }
 
-fun manhattanDistance(a: Coordinate, b: Coordinate): Double = (abs(b.x - a.x) + abs(b.y - a.y)).toDouble()
+private fun manhattanDistance(a: Coordinate, b: Coordinate): Double = (abs(b.x - a.x) + abs(b.y - a.y)).toDouble()
