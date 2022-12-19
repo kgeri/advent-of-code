@@ -2,84 +2,95 @@ package me.gergo
 
 import me.gergo.Resource.*
 import java.io.File
+import java.util.*
 
 
 fun main() {
     val blueprints = File("src/main/resources/input19.txt").readLines()
         .map(::parseBlueprints)
 
-    val blueprint = blueprints[0]
-    println("Building $blueprint")
+    // Part One
+//    val results1 = solve(blueprints, 24)
+//    val sumQualityLevels = results1.map { (blueprint, geodes) -> blueprint.id * geodes }.sum()
+//    println("Sum quality levels: $sumQualityLevels")
 
-    val memo = mutableMapOf<State, Int>()
-
-    fun simulate(state: State, round: Int): Int {
-        if (round == 0) return state.resources[GEODE]
-        val cachedResult = memo[state]
-
-        if (cachedResult != null) return cachedResult
-
-        val buildStates = state.resources.keys
-            .filter { state.canBuild(it, blueprint) }
-            .filter { state.shouldBuild(it, blueprint) }
-            .map { state.buildAndGather(it, blueprint) }
-        val maxResourceTypes = buildStates.maxOfOrNull { it.resources.resourceTypeCount() } ?: 0
-
-        val possibleStates = buildStates
-            .filter { it.resources.resourceTypeCount() >= maxResourceTypes } // Preferring states that maximize the number of resource types
-            .plus(state.gather())
-        val result = possibleStates.maxOf { simulate(it, round - 1) }
-
-        memo[state] = result
-        return result
-    }
-
-    val maxGeode = simulate(State(mapOf(ORE to 1), Resources()), 24)
-    println(maxGeode)
+    // Part Two
+    val results2 = solve(blueprints.take(3), 32)
+    val maxGeodesMultiple = results2.values.reduce(Int::times)
+    println("Max geodes multiple: $maxGeodesMultiple")
 }
+
+private fun solve(blueprints: List<Blueprint>, minutes: Int): Map<Blueprint, Int> {
+    val results = mutableMapOf<Blueprint, Int>()
+    for (blueprint in blueprints) {
+        var states = setOf(State(mapOf(ORE to 1), emptyMap()))
+        for (t in 1..minutes) {
+            println("Minute $t, number of states: ${states.size}")
+            val newStates = HashSet<State>(states.size * 2)
+
+            val resourceCaps = ResourceTypes.associateWith { type ->  // Cap resource counters
+                val maxCost = blueprint.maxCosts[type]!!
+                if (maxCost == Int.MAX_VALUE) Int.MAX_VALUE else maxCost * (minutes - t)
+            }
+
+            for (state in states) {
+                for (type in ResourceTypes) { // Generating possible builder states
+                    if (!state.canBuild(type, blueprint)) continue // Not enough minerals :) 
+                    if (!state.shouldBuild(type, blueprint)) continue // We already produce enough minerals of this kind to build anything
+                    newStates.add(state.buildAndGather(type, blueprint, resourceCaps)) // Building a new robot
+                }
+                newStates.add(state.gather(resourceCaps)) // Just gathering is always an option
+            }
+            states = newStates
+        }
+
+        val maxGeode = states.maxOf(State::numGeodes)
+        results[blueprint] = maxGeode
+        println("Maximum number of geodes created: $maxGeode (Blueprint: $blueprint)")
+    }
+    return results
+}
+
+private val ResourceTypes = Resource.values()
 
 private enum class Resource {
     ORE, CLAY, OBSIDIAN, GEODE;
 }
 
-private class Resources() : HashMap<Resource, Int>() {
-    init {
-        for (type in Resource.values()) put(type, 0)
-    }
+private data class State(val robots: Map<Resource, Int>, val resources: Map<Resource, Int>) {
 
-    constructor(other: Resources) : this() {
-        other.forEach { (type, amount) -> this[type] = amount }
-    }
+    fun canBuild(type: Resource, blueprint: Blueprint) = blueprint.costs[type]!!.all { (t, cost) -> resources.getOrDefault(t, 0) >= cost }
 
-    fun resourceTypeCount() = count { it.value > 0 }
-
-    override fun get(key: Resource) = super.get(key)!!
-
-    operator fun plus(deltas: Iterable<Pair<Resource, Int>>): Resources {
-        val result = Resources(this)
-        deltas.forEach { (type, delta) -> result[type] = result[type] + delta }
-        return result
-    }
-
-    operator fun minus(deltas: Iterable<Pair<Resource, Int>>): Resources {
-        val result = Resources(this)
-        deltas.forEach { (type, delta) -> result[type] = result[type] - delta }
-        return result
-    }
-}
-
-private data class State(val robots: Map<Resource, Int>, val resources: Resources) {
-
-    fun canBuild(type: Resource, blueprint: Blueprint) = blueprint.costs[type]!!.all { (t, cost) -> resources[t] >= cost }
-
-    fun shouldBuild(type: Resource, blueprint: Blueprint) = // Do not build a new robot if we can already produce the max needed amount per turn
+    fun shouldBuild(type: Resource, blueprint: Blueprint) = // Build robots only until we can produce the most expensive robot of that kind
         robots.getOrDefault(type, 0) < blueprint.maxCosts[type]!!
 
-    fun buildAndGather(type: Resource, blueprint: Blueprint) = // Building a robot, decreasing with costs and incrementing with what was gathered
-        State(robots.plus(Pair(type, robots.getOrDefault(type, 0) + 1)), resources - blueprint.costs[type]!! + gatheredResources())
+    fun numGeodes(): Int = resources.getOrDefault(GEODE, 0)
 
-    fun gather() = State(robots, resources + gatheredResources()) // Incrementing with whatever the robots gathered
-    private fun gatheredResources() = robots.map { (type, count) -> Pair(type, count) }
+    fun buildAndGather(type: Resource, blueprint: Blueprint, resourceCaps: Map<Resource, Int>): State {
+        val newResources = copyOf(resources)
+        val newRobots = copyOf(robots) // Building a new robot
+        blueprint.costs[type]!!.forEach { (t, cost) -> newResources.increment(t, -cost, resourceCaps[t]!!) } // Reducing minerals by the cost
+        newRobots.increment(type, 1, resourceCaps[type]!!) // Adding the robot
+        robots.forEach { (t, count) -> newResources.increment(t, count, resourceCaps[t]!!) } // Existing robots are gathering
+        return State(newRobots, newResources)
+    }
+
+    fun gather(resourceCaps: Map<Resource, Int>): State {
+        val newResources = copyOf(resources)
+        robots.forEach { (t, count) -> newResources.increment(t, count, resourceCaps[t]!!) } // Existing robots are gathering
+        return State(robots, newResources)
+    }
+
+    private fun MutableMap<Resource, Int>.increment(type: Resource, delta: Int, cap: Int) {
+        val value = this.getOrDefault(type, 0)
+        this[type] = minOf(value + delta, cap)
+    }
+
+    private fun copyOf(other: Map<Resource, Int>): MutableMap<Resource, Int> {
+        val result = EnumMap<Resource, Int>(Resource::class.java)
+        result.putAll(other)
+        return result
+    }
 }
 
 private data class Blueprint(
