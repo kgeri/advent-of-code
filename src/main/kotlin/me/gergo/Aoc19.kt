@@ -2,8 +2,13 @@ package me.gergo
 
 import me.gergo.Resource.*
 import java.io.File
-import java.util.*
 
+// TIL:
+// - Kotlin mutableMap / mutableSet are backed by LinkedHashMap, which is bloody slow
+// - You'd expect that a java.util.EnumMap's hashCode / equals is fast, but the darned thing is _allocating Iterators_ <facepalm>
+// - Copying objects of any kind becomes awful when you do it millions of times (duh)
+// - Modeling with primitive fields in mutable objects this lead to at least an order of magnitude improvement
+// Still, for problems like this one, picking the right branch pruning methods are what really matters.
 
 fun main() {
     val blueprints = File("src/main/resources/input19.txt").readLines()
@@ -23,28 +28,30 @@ fun main() {
 private fun solve(blueprints: List<Blueprint>, minutes: Int): Map<Blueprint, Int> {
     val results = mutableMapOf<Blueprint, Int>()
     for (blueprint in blueprints) {
-        var states = setOf(State(mapOf(ORE to 1), emptyMap()))
+        var states = setOf(State())
         for (t in 1..minutes) {
             println("Minute $t, number of states: ${states.size}")
             val newStates = HashSet<State>(states.size * 2)
 
-            val resourceCaps = ResourceTypes.associateWith { type ->  // Cap resource counters
+            // Cap resource counters with maxCost * minutesLeft (as we won't ever need more of that resource)
+            val minutesLeft = minutes - t
+            val resourceCaps = ResourceTypes.associateWith { type ->
                 val maxCost = blueprint.maxCosts[type]!!
-                if (maxCost == Int.MAX_VALUE) Int.MAX_VALUE else maxCost * (minutes - t)
+                if (maxCost == Int.MAX_VALUE) Int.MAX_VALUE else maxCost * minutesLeft
             }
 
             for (state in states) {
                 for (type in ResourceTypes) { // Generating possible builder states
                     if (!state.canBuild(type, blueprint)) continue // Not enough minerals :) 
-                    if (!state.shouldBuild(type, blueprint)) continue // We already produce enough minerals of this kind to build anything
-                    newStates.add(state.buildAndGather(type, blueprint, resourceCaps)) // Building a new robot
+                    if (!state.shouldBuild(type, blueprint, minutesLeft)) continue // We already produce enough minerals of this kind
+                    newStates.add(state.buildAndGather(type, blueprint, resourceCaps, minutesLeft)) // Building a new robot
                 }
                 newStates.add(state.gather(resourceCaps)) // Just gathering is always an option
             }
             states = newStates
         }
 
-        val maxGeode = states.maxOf(State::numGeodes)
+        val maxGeode = states.maxOf { it.stock(GEODE) }
         results[blueprint] = maxGeode
         println("Maximum number of geodes created: $maxGeode (Blueprint: $blueprint)")
     }
@@ -57,39 +64,84 @@ private enum class Resource {
     ORE, CLAY, OBSIDIAN, GEODE;
 }
 
-private data class State(val robots: Map<Resource, Int>, val resources: Map<Resource, Int>) {
+private data class State(
+    var oreRobots: Int,
+    var clayRobots: Int,
+    var obsidianRobots: Int,
+    var geodeRobots: Int,
+    var ore: Int,
+    var clay: Int,
+    var obsidian: Int,
+    var geode: Int
+) {
+    constructor() : this(1, 0, 0, 0, 0, 0, 0, 0)
 
-    fun canBuild(type: Resource, blueprint: Blueprint) = blueprint.costs[type]!!.all { (t, cost) -> resources.getOrDefault(t, 0) >= cost }
+    fun robotCount(type: Resource) = when (type) {
+        ORE -> oreRobots
+        CLAY -> clayRobots
+        OBSIDIAN -> obsidianRobots
+        GEODE -> 0 // Optimization: Geode robots are not tracked
+    }
 
-    fun shouldBuild(type: Resource, blueprint: Blueprint) = // Build robots only until we can produce the most expensive robot of that kind
-        robots.getOrDefault(type, 0) < blueprint.maxCosts[type]!!
+    fun stock(type: Resource) = when (type) {
+        ORE -> ore
+        CLAY -> clay
+        OBSIDIAN -> obsidian
+        GEODE -> geode
+    }
 
-    fun numGeodes(): Int = resources.getOrDefault(GEODE, 0)
+    fun canBuild(type: Resource, blueprint: Blueprint) = blueprint.costs[type]!!.all { (t, cost) -> stock(t) >= cost }
 
-    fun buildAndGather(type: Resource, blueprint: Blueprint, resourceCaps: Map<Resource, Int>): State {
-        val newResources = copyOf(resources)
-        val newRobots = copyOf(robots) // Building a new robot
-        blueprint.costs[type]!!.forEach { (t, cost) -> newResources.increment(t, -cost, resourceCaps[t]!!) } // Reducing minerals by the cost
-        newRobots.increment(type, 1, resourceCaps[type]!!) // Adding the robot
-        robots.forEach { (t, count) -> newResources.increment(t, count, resourceCaps[t]!!) } // Existing robots are gathering
-        return State(newRobots, newResources)
+    fun shouldBuild(type: Resource, blueprint: Blueprint, minutesLeft: Int): Boolean {
+        // Build robots only until we can produce the most expensive robot of that kind
+        return robotCount(type) < blueprint.maxCosts[type]!!
+    }
+
+    fun buildAndGather(type: Resource, blueprint: Blueprint, resourceCaps: Map<Resource, Int>, minutesLeft: Int): State {
+        val result = gather(resourceCaps) // Existing robots are gathering
+
+        // Optimization for Geode bots = we don't have to keep track of them, just immediately add a geode count of minutesLeft to the resources
+        if (type == GEODE) {
+            for ((t, cost) in blueprint.costs[type]!!) {
+                result.updateStock(t, -cost, resourceCaps) // Reducing minerals by the cost
+            }
+            result.updateStock(GEODE, minutesLeft, resourceCaps) // Fast-forwarding geode count
+            return result
+        }
+
+        // Building a new robot
+        for ((t, cost) in blueprint.costs[type]!!) {
+            result.updateStock(t, -cost, resourceCaps) // Reducing minerals by the cost
+        }
+        result.addRobot(type)
+        return result
     }
 
     fun gather(resourceCaps: Map<Resource, Int>): State {
-        val newResources = copyOf(resources)
-        robots.forEach { (t, count) -> newResources.increment(t, count, resourceCaps[t]!!) } // Existing robots are gathering
-        return State(robots, newResources)
-    }
-
-    private fun MutableMap<Resource, Int>.increment(type: Resource, delta: Int, cap: Int) {
-        val value = this.getOrDefault(type, 0)
-        this[type] = minOf(value + delta, cap)
-    }
-
-    private fun copyOf(other: Map<Resource, Int>): MutableMap<Resource, Int> {
-        val result = EnumMap<Resource, Int>(Resource::class.java)
-        result.putAll(other)
+        val result = State(oreRobots, clayRobots, obsidianRobots, geodeRobots, ore, clay, obsidian, geode)
+        result.updateStock(ORE, oreRobots, resourceCaps)
+        result.updateStock(CLAY, clayRobots, resourceCaps)
+        result.updateStock(OBSIDIAN, obsidianRobots, resourceCaps)
+        // Optimization: Geode robots are not tracked
         return result
+    }
+
+    private fun addRobot(type: Resource) {
+        when (type) { // Adding the robot
+            ORE -> oreRobots++
+            CLAY -> clayRobots++
+            OBSIDIAN -> obsidianRobots++
+            else -> {} // Optimization: Geode robots are not tracked
+        }
+    }
+
+    private fun updateStock(type: Resource, delta: Int, resourceCaps: Map<Resource, Int>) {
+        when (type) {
+            ORE -> ore = minOf(ore + delta, resourceCaps[ORE]!!)
+            CLAY -> clay = minOf(clay + delta, resourceCaps[CLAY]!!)
+            OBSIDIAN -> obsidian = minOf(obsidian + delta, resourceCaps[OBSIDIAN]!!)
+            GEODE -> geode = minOf(geode + delta, resourceCaps[GEODE]!!)
+        }
     }
 }
 
