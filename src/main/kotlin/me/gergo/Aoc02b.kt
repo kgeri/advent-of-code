@@ -13,8 +13,8 @@ fun main() {
 
 private val Choices = Choice.values()
 
-enum class Result { Lose, Draw, Win }
-data class Guide2(val opponent: Choice, val result: Result) {
+private enum class Result { Lose, Draw, Win }
+private data class Guide2(val opponent: Choice, val result: Result) {
     fun score(): Int = scoreFor(pickChoiceFor(opponent, result)) + scoreFor(result)
 
     private fun scoreFor(r: Result): Int = when (r) {
@@ -31,7 +31,7 @@ data class Guide2(val opponent: Choice, val result: Result) {
     }
 }
 
-fun parseGuide2(line: String): Guide2 {
+private fun parseGuide2(line: String): Guide2 {
     val tokens = line.split(" ")
     val opponent = when (tokens[0]) {
         "A" -> Rock

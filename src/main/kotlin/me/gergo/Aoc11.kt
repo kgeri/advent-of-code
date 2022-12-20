@@ -7,7 +7,7 @@ private const val Rounds = 10000
 
 /**
  * Note: this only has Part Two, as I did Part One with a naiive solution that probably takes all the memory in the world, multiplying horribly large
- * BigDecimals :) The trick in this one is to remember but delay the computation for as long as possible. As we're only really interested in whether
+ * BigDecimals :) The trick in this one is to remember to delay the computation for as long as possible. As we're only really interested in whether
  * the result at the end of a long chain of operations is divisible by N, we can modulo N per every operation - but we must do that for each monkey
  * individually, which means we must remember the computation chain (Items.operations in this implementation)!
  * 
@@ -36,19 +36,6 @@ fun main() {
 
     val result = monkeys.map(Monkey::inspections).sortedDescending().take(2).reduce(Long::times)
     println("Level of monkey business: $result")
-}
-
-fun lcm(a: Int, b: Int) = a * (b / gcd(a, b))
-
-fun gcd(a: Int, b: Int): Int {
-    var a0 = a
-    var b0 = b
-    while (b0 > 0) {
-        val temp = b0
-        b0 = a0 % b0
-        a0 = temp
-    }
-    return a0
 }
 
 private class Monkey(val name: Int, val items: Queue<Item>, val operation: Operation, val divisor: Int, val throwToTrue: Int, val throwToFalse: Int) {

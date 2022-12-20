@@ -16,17 +16,17 @@ fun main() {
     stacks.forEach { print(it.peek()) }
 }
 
-typealias CrateStack = Stack<Char>
+private typealias CrateStack = Stack<Char>
 
-data class Instruction(val quantity: Int, val fromStack: Int, val toStack: Int) {}
+private data class Instruction(val quantity: Int, val fromStack: Int, val toStack: Int) {}
 
-fun parseStacksAndInstructions(lines: List<String>): Pair<List<CrateStack>, List<Instruction>> {
+private fun parseStacksAndInstructions(lines: List<String>): Pair<List<CrateStack>, List<Instruction>> {
     val stacks = parseStacks(lines.subList(0, lines.indexOf("") - 1))
     val instructions = lines.subList(lines.indexOf("") + 1, lines.size).map(::parseInstruction)
     return Pair(stacks, instructions)
 }
 
-fun parseStacks(lines: List<String>): List<CrateStack> {
+private fun parseStacks(lines: List<String>): List<CrateStack> {
     val stackCount = (lines[0].length + 1) / 4
     val result = List(stackCount) { Stack<Char>() }
     for (i in lines.size - 1 downTo 0) {
@@ -41,7 +41,7 @@ fun parseStacks(lines: List<String>): List<CrateStack> {
     return result
 }
 
-fun parseInstruction(line: String): Instruction {
+private fun parseInstruction(line: String): Instruction {
     val m = Regex("move (\\d+) from (\\d+) to (\\d+)").matchEntire(line)!!
     return Instruction(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt())
 }

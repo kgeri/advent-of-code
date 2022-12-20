@@ -11,7 +11,7 @@ fun main() {
 }
 
 enum class Choice { Rock, Paper, Scissors }
-data class Guide(val opponent: Choice, val my: Choice) {
+private data class Guide(val opponent: Choice, val my: Choice) {
     fun score(): Int = scoreFor(my) + scoreForOutcomeOf(opponent, my)
 
     private fun scoreFor(c: Choice): Int = c.ordinal + 1
@@ -24,7 +24,7 @@ data class Guide(val opponent: Choice, val my: Choice) {
     }
 }
 
-fun parseGuide(line: String): Guide {
+private fun parseGuide(line: String): Guide {
     val tokens = line.split(" ")
     val opponent = when (tokens[0]) {
         "A" -> Rock

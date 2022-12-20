@@ -40,7 +40,7 @@ fun main() {
     println("To delete: $toDelete, totalSize=${toDelete.totalSize()}")
 }
 
-fun parseCommandLine(line: String): CommandLine {
+private fun parseCommandLine(line: String): CommandLine {
     return if (line == "$ ls") Ls
     else if (line.startsWith("$ cd")) Cd(line.substring(5))
     else if (line.startsWith("dir ")) DirectoryOutput(line.substring(4))
@@ -50,13 +50,13 @@ fun parseCommandLine(line: String): CommandLine {
     }
 }
 
-sealed interface CommandLine
-object Ls : CommandLine {}
-data class Cd(val dirName: String) : CommandLine {}
-data class DirectoryOutput(val name: String) : CommandLine {}
-data class FileOutput(val name: String, val size: Int) : CommandLine {}
+private sealed interface CommandLine
+private object Ls : CommandLine {}
+private data class Cd(val dirName: String) : CommandLine {}
+private data class DirectoryOutput(val name: String) : CommandLine {}
+private data class FileOutput(val name: String, val size: Int) : CommandLine {}
 
-data class FileNode(val name: String, val size: Int, var parent: FileNode?, val children: MutableList<FileNode>) {
+private data class FileNode(val name: String, val size: Int, var parent: FileNode?, val children: MutableList<FileNode>) {
 
     fun isDirectory() = children.size > 0
 

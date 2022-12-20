@@ -11,7 +11,7 @@ fun main() {
     println("Max scenic score: ${trees.maxScenicScore()}") // Part Two
 }
 
-class Trees(lines: List<String>) {
+private class Trees(lines: List<String>) {
     private val forest: Array<IntArray>
     private val width: Int
     private val height: Int

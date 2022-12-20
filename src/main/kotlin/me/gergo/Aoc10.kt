@@ -19,9 +19,9 @@ fun main() {
     CRT(40, 6, cpu).draw()
 }
 
-sealed class Instr(val duration: Int)
-object Noop : Instr(1)
-data class Addx(val value: Int) : Instr(2)
+private sealed class Instr(val duration: Int)
+private object Noop : Instr(1)
+private data class Addx(val value: Int) : Instr(2)
 
 private class CPU(private val instructions: List<Instr>) {
     private var instructionPointer = 0
@@ -56,7 +56,7 @@ private class CRT(private val width: Int, private val height: Int, private val c
     }
 }
 
-fun parseInstr(line: String): Instr {
+private fun parseInstr(line: String): Instr {
     val tokens = line.split(" ")
     return if (tokens[0] == "noop") Noop
     else Addx(tokens[1].toInt())

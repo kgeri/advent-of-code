@@ -18,13 +18,13 @@ fun main() {
     println("Positions visited by tail: ${ropeField.positionsVisitedByTail().count()}")
 }
 
-enum class Direction { L, R, U, D }
-data class RopeStep(val dir: Direction, val steps: Int)
-data class Position(val x: Int, val y: Int) {
+private enum class Direction { L, R, U, D }
+private data class RopeStep(val dir: Direction, val steps: Int)
+private data class Position(val x: Int, val y: Int) {
     fun distanceFrom(o: Position) = max(abs(x - o.x), abs(y - o.y))
 }
 
-class Rope(internal val knots: MutableList<Position>) {
+private class Rope(internal val knots: MutableList<Position>) {
 
     fun head() = knots[0]
     fun tail() = knots[knots.size - 1]
@@ -56,7 +56,7 @@ class Rope(internal val knots: MutableList<Position>) {
     }
 }
 
-class RopeField(private val width: Int, private val height: Int, ropeLength: Int) {
+private class RopeField(private val width: Int, private val height: Int, ropeLength: Int) {
     private val rope = Rope(MutableList(ropeLength) { Position(0, 0) })
     private val tailPositions = mutableListOf<Position>()
 
@@ -81,7 +81,7 @@ class RopeField(private val width: Int, private val height: Int, ropeLength: Int
     fun positionsVisitedByTail() = tailPositions.toSet()
 }
 
-fun parseRopeStep(line: String): RopeStep {
+private fun parseRopeStep(line: String): RopeStep {
     val (dir, steps) = line.split(" ")
     return RopeStep(Direction.valueOf(dir), steps.toInt())
 }

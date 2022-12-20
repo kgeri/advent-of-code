@@ -23,6 +23,6 @@ fun main() {
         .sumOf { it.calories })
 }
 
-class Elf {
+private class Elf {
     var calories = 0;
 }

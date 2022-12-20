@@ -11,12 +11,12 @@ fun main() {
     println(results)
 }
 
-data class Assignment(val first: IntRange, val second: IntRange) {
+private data class Assignment(val first: IntRange, val second: IntRange) {
     fun fullyContains() = first.minus(second).isEmpty() || second.minus(first).isEmpty()
     fun overlaps() = first.minus(second).size < first.count() || second.minus(first).size < second.count()
 }
 
-fun parseAssignment(line: String): Assignment {
+private fun parseAssignment(line: String): Assignment {
     val ranges = line.split(",").map {
         val range = it.split("-").map(String::toInt)
         range[0]..range[1]
