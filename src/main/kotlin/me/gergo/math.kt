@@ -12,3 +12,10 @@ fun gcd(a: Int, b: Int): Int {
     }
     return a0
 }
+
+fun <T> powerset(set: Set<T>): Set<Set<T>> {
+    if (set.isEmpty()) return setOf(emptySet())
+    val first = set.first()
+    val subset = powerset(set.minus(first))
+    return subset + subset.map { it + first }
+}

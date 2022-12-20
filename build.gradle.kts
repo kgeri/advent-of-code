@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4")
     implementation("com.github.h0tk3y.betterParse:better-parse:0.4.4")
     testImplementation(kotlin("test"))
 }
