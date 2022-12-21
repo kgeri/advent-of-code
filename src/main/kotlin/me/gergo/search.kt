@@ -42,3 +42,47 @@ fun <N> aStar(
     }
     return emptyList() // Path not found
 }
+
+fun <N> dijkstra(
+    source: N,
+    nodes: Iterable<N>,
+    neighborFn: (N) -> Sequence<N>,
+    distanceFn: (N, N) -> Double
+): DijkstraResult<N> {
+    val dist = mutableMapOf<N, Double>()
+    val prev = mutableMapOf<N, N>()
+    val q = mutableSetOf<N>()
+
+    for (v in nodes) {
+        dist[v] = Double.POSITIVE_INFINITY
+        q.add(v)
+    }
+    dist[source] = 0.0
+
+    while (q.isNotEmpty()) {
+        val u = q.minBy { dist[it]!! }
+        q.remove(u)
+
+        for (v in neighborFn(u).filter { q.contains(it) }) {
+            val alt = dist[u]!! + distanceFn(u, v)
+            if (alt < dist[v]!!) {
+                dist[v] = alt
+                prev[v] = u
+            }
+        }
+    }
+    return DijkstraResult(source, dist, prev)
+}
+
+data class DijkstraResult<T>(val source: T, val dist: Map<T, Double>, val prev: Map<T, T>) {
+
+    fun shortestPath(target: T): List<T> {
+        val s = mutableListOf<T>()
+        var u: T? = target
+        while (u != source && u != null) {
+            s.add(0, u)
+            u = prev[u]
+        }
+        return s
+    }
+}
