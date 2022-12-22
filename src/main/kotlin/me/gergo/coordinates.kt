@@ -16,6 +16,13 @@ enum class Direction {
         R -> U
         D -> R
     }
+
+    fun opposite() = when (this) {
+        L -> R
+        U -> D
+        R -> L
+        D -> U
+    }
 }
 
 data class Coordinate(val x: Int, val y: Int)
