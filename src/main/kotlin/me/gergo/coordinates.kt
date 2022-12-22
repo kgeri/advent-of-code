@@ -1,6 +1,22 @@
 package me.gergo
 
-import kotlin.math.abs
+enum class Direction {
+    L, U, R, D;
+
+    fun clockWise() = when (this) {
+        L -> U
+        U -> R
+        R -> D
+        D -> L
+    }
+
+    fun counterClockWise() = when (this) {
+        L -> D
+        U -> L
+        R -> U
+        D -> R
+    }
+}
 
 data class Coordinate(val x: Int, val y: Int)
 

@@ -18,7 +18,6 @@ fun main() {
     println("Positions visited by tail: ${ropeField.positionsVisitedByTail().count()}")
 }
 
-private enum class Direction { L, R, U, D }
 private data class RopeStep(val dir: Direction, val steps: Int)
 private data class Position(val x: Int, val y: Int) {
     fun distanceFrom(o: Position) = max(abs(x - o.x), abs(y - o.y))
