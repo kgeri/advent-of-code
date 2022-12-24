@@ -27,28 +27,60 @@ fun main() {
         map
     }
     println("Pre-generated ${blizzardStates.size} states")
+    val valley = Valley24(width, height, blizzardStates)
 
-    var states = setOf(State24(0, 0, 1))
-    for (t in 1..Int.MAX_VALUE) {
-        println("Minute $t, number of states: ${states.size}")
+    // Part One
+    // We're ending up in (width-1,height-1) instead of , hence the +1
+    val result1 = valley.simulate(0, -1, 0, width - 1, height - 1) + 1
+    println("Goal reached at: $result1")
 
-        val newStates = HashSet<State24>(states.size)
-        val bsNext = blizzardStates[(t + 1) % blizzardStateCount]
-        for (s in states) {
-            // Moving in any direction is an option if there will be no blizzard there in the next round
-            if (s.x > 0 && bsNext.free(s.x - 1, s.y)) newStates.add(State24(s.x - 1, s.y, t + 1))
-            if (s.y > 0 && bsNext.free(s.x, s.y - 1)) newStates.add(State24(s.x, s.y - 1, t + 1))
-            if (s.x < width - 1 && bsNext.free(s.x + 1, s.y)) newStates.add(State24(s.x + 1, s.y, t + 1))
-            if (s.y < height - 1 && bsNext.free(s.x, s.y + 1)) newStates.add(State24(s.x, s.y + 1, t + 1))
-            // Staying in place is only an option if there will be no blizzard in the next round
-            if (bsNext.free(s.x, s.y)) newStates.add(State24(s.x, s.y, t + 1))
+    // Part Two
+    // Continuing the simulation
+    val backToStart = valley.simulate(width - 1, height, result1, 0, 0) + 1
+    println("Back to start reached at: $backToStart")
+    val result2 = valley.simulate(0, -1, backToStart, width - 1, height - 1) + 1
+    println("Goal reached again at: $result2")
+}
+
+private class Valley24(private val width: Int, private val height: Int, private val blizzardStates: Array<Array<BooleanArray>>) {
+
+    fun simulate(startX: Int, startY: Int, startTime: Int, goalX: Int, goalY: Int): Int {
+        fun State24.moveTo(x: Int, y: Int) = State24(x, y, (time + 1) % blizzardStates.size)
+        fun State24.stay() = State24(x, y, (time + 1) % blizzardStates.size)
+
+        var states = setOf(State24(startX, startY, startTime))
+        for (t in startTime..Int.MAX_VALUE) {
+            println("Minute $t, number of states: ${states.size}")
+
+            val newStates = HashSet<State24>(states.size * 2)
+            val bsNext = blizzardStates[(t + 1) % blizzardStates.size]
+            for (s in states) {
+                if (s.x == 0 && s.y == -1) { // Valley entry
+                    if (bsNext.free(0, 0)) newStates.add(s.moveTo(0, 0))
+                    newStates.add(s.stay()) // Staying in the start position is always an option
+                    continue
+                } else if (s.x == width - 1 && s.y == height) { // Valley exit
+                    if (bsNext.free(width - 1, height - 1)) newStates.add(s.moveTo(width - 1, height - 1))
+                    newStates.add(s.stay()) // Staying in the start position is always an option
+                    continue
+                }
+
+                // Moving in any direction is an option if there will be no blizzard there in the next round
+                if (s.x > 0 && bsNext.free(s.x - 1, s.y)) newStates.add(s.moveTo(s.x - 1, s.y))
+                if (s.y > 0 && bsNext.free(s.x, s.y - 1)) newStates.add(s.moveTo(s.x, s.y - 1))
+                if (s.x < width - 1 && bsNext.free(s.x + 1, s.y)) newStates.add(s.moveTo(s.x + 1, s.y))
+                if (s.y < height - 1 && bsNext.free(s.x, s.y + 1)) newStates.add(s.moveTo(s.x, s.y + 1))
+                // Staying in place is only an option if there will be no blizzard in the next round
+                if (bsNext.free(s.x, s.y)) newStates.add(s.stay())
+            }
+
+            if (newStates.isEmpty()) throw IllegalStateException("Can't move anywhere at $t!")
+            if (newStates.any { s -> s.x == goalX && s.y == goalY }) {
+                return t + 1
+            }
+            states = newStates
         }
-
-        if (newStates.any { s -> s.x == width - 1 && s.y == height - 1 }) {
-            println("Goal reached at: ${t + 2}") // We've started from (0,0) and ended up in (width-1,height-1)
-            break
-        }
-        states = newStates
+        throw IllegalStateException("Solution not found :(")
     }
 }
 
